@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nota de Venta - Servicio Técnico a Domicilio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #b0b0b0;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+/* ===== LAYOUT ===== */
+.app-container {
+  max-width: 1380px;
+  margin: 0 auto;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* ===== PANEL ===== */
+.control-panel {
+  width: 300px;
+  flex-shrink: 0;
+  background: #1e1e1e;
+  border-radius: 10px;
+  padding: 18px;
+  color: #eee;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.control-panel::-webkit-scrollbar { width: 4px; }
+.control-panel::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+.control-panel h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #f0a500;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  margin: 12px 0 5px;
+  font-weight: bold;
+}
+.control-panel label {
+  display: block;
+  font-size: 11px;
+  color: #aaa;
+  margin-bottom: 2px;
+}
+.control-panel input {
+  width: 100%;
+  padding: 7px 9px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #eee;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  margin-bottom: 7px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.control-panel input:focus { border-color: #f0a500; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+
+/* ===== BOTONES ===== */
+.btn {
+  width: 100%;
+  padding: 9px;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 5px;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:hover { opacity: 0.85; }
+.btn:active { transform: scale(0.97); }
+.btn-add    { background: #27ae60; color: #fff; }
+.btn-cancel { background: #c0392b; color: #fff; }
+.btn-pdf    { background: #e74c3c; color: #fff; }
+.btn-print  { background: #2471a3; color: #fff; }
+.btn-new    { background: #444; color: #eee; }
+.btn-auto-num { background: #6c3483; color: #fff; font-size: 10px; padding: 7px 8px; }
+
+.num-row { display: flex; gap: 5px; margin-bottom: 7px; }
+.num-row input { flex: 1; margin-bottom: 0; }
+.num-row button { flex-shrink: 0; width: auto; }
+
+/* ===== ITEMS PREVIEW ===== */
+.items-list-preview { margin-top: 6px; max-height: 140px; overflow-y: auto; }
+.item-preview {
+  background: #2a2a2a;
+  border-radius: 3px;
+  padding: 5px 8px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 5px;
+}
+.item-preview-text { flex: 1; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-preview-price { color: #f0a500; font-family: 'Courier New', monospace; white-space: nowrap; }
+.item-preview-del { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 13px; padding: 0 2px; }
+
+/* ===== BOLETA AREA ===== */
+.boleta-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.boleta-top-ref {
+  font-size: 11px;
+  color: #555;
+  margin-bottom: 4px;
+  font-family: 'Courier New', monospace;
+  align-self: flex-end;
+}
+.boleta-scale-wrapper { width: 100%; overflow: hidden; }
+
+/* ===== BOLETA ===== */
+#boleta {
+  background: #fff;
+  width: 842px;
+  min-height: 540px;
+  border: 2px solid #111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
+  position: relative;
+  transform-origin: top left;
+}
+
+/* ===== SELLO CANCELADO ===== */
+.sello-cancelado {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  border: 7px solid rgba(185,0,0,0.70);
+  color: rgba(185,0,0,0.70);
+  font-size: 76px;
+  font-weight: 900;
+  font-family: Arial Black, Arial, sans-serif;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  padding: 8px 22px;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  user-select: none;
+}
+#boleta.cancelado .sello-cancelado { display: block; }
+
+/* ===== HEADER ===== */
+.boleta-header {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 2px solid #111;
+  min-height: 96px;
+}
+
+.header-logo {
+  width: 96px;
+  flex-shrink: 0;
+  border-right: 2px solid #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  background: #fff;
+}
+.logo-svg { width: 82px; height: 82px; }
+
+.header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  text-align: center;
+}
+.business-name {
+  font-size: 21px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #111;
+  line-height: 1.1;
+}
+.sub1,.sub2,.sub3 {
+  font-size: 10.5px;
+  color: #111;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-top: 1px;
+}
+.telefono { font-size: 12px; font-weight: bold; margin-top: 4px; }
+
+.header-nota {
+  width: 132px;
+  flex-shrink: 0;
+  border-left: 2px solid #111;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.nota-label {
+  background: #111;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  text-align: center;
+  width: 100%;
+  padding: 5px 4px;
+  letter-spacing: 0.5px;
+}
+.nota-number {
+  font-family: 'Courier New', monospace;
+  font-size: 30px;
+  font-weight: 900;
+  color: #e74c3c;
+  letter-spacing: 3px;
+  padding: 6px 4px;
+  text-align: center;
+}
+.nota-fecha { border-top: 1px solid #111; width: 100%; }
+.fecha-header { display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid #111; }
+.fecha-header span {
+  font-size: 9px;
+  font-weight: bold;
+  text-align: center;
+  padding: 2px 0;
+  border-right: 1px solid #111;
+  text-transform: uppercase;
+}
+.fecha-header span:last-child { border-right: none; }
+.fecha-vals { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.fecha-vals span {
+  font-size: 11px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  padding: 3px 0;
+  border-right: 1px solid #111;
+}
+.fecha-vals span:last-child { border-right: none; }
+
+/* ===== CLIENTE ===== */
+.cliente-section { border-bottom: 1px solid #222; padding: 5px 10px; }
+.cliente-row { display: flex; align-items: baseline; margin-bottom: 4px; font-size: 11.5px; }
+.field-label { font-weight: bold; white-space: nowrap; margin-right: 4px; }
+.dotted-line { flex: 1; border-bottom: 1px dotted #666; margin: 0 3px 2px; min-width: 20px; }
+.field-value { font-weight: bold; font-size: 12px; }
+.cliente-row2 { display: flex; }
+.dir-group { flex: 1; display: flex; align-items: baseline; }
+.dni-group { width: 200px; display: flex; align-items: baseline; }
+
+/* ===== TABLA ===== */
+.items-table { width: 100%; border-collapse: collapse; }
+.items-table thead tr { background: #111; color: #fff; }
+.items-table thead th {
+  padding: 5px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  border-right: 1px solid #555;
+}
+.items-table thead th:last-child { border-right: none; }
+.items-table tbody tr { border-bottom: 1px solid #ddd; }
+.items-table tbody td {
+  padding: 4px 6px;
+  font-size: 11.5px;
+  border-right: 1px solid #ddd;
+  vertical-align: middle;
+}
+.items-table tbody td:last-child { border-right: none; }
+.col-cant { width: 46px; text-align: center; }
+.col-punit { width: 80px; text-align: right; font-family: 'Courier New', monospace; }
+.col-importe { width: 90px; text-align: right; font-family: 'Courier New', monospace; font-weight: bold; }
+.col-del { width: 26px; text-align: center; }
+.btn-del { background: none; border: none; color: #c0392b; font-size: 14px; cursor: pointer; }
+.btn-del:hover { color: #e74c3c; }
+.empty-row td { height: 23px; }
+
+/* ===== PIE ===== */
+.boleta-footer {
+  border-top: 2px solid #111;
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  gap: 10px;
+}
+.footer-acuenta, .footer-saldo {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: bold;
+}
+.footer-box {
+  border: 1px solid #222;
+  min-width: 78px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  background: #f7f7f7;
+}
+.footer-total { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 900; }
+.total-box {
+  border: 2px solid #111;
+  padding: 3px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 900;
+  min-width: 100px;
+  text-align: right;
+}
+.firma-section { border-top: 1px solid #ddd; display: flex; justify-content: flex-end; padding: 6px 14px 10px; }
+.firma-box {
+  border-top: 1px solid #555;
+  width: 160px;
+  text-align: center;
+  font-size: 10px;
+  color: #555;
+  padding-top: 4px;
+}
+
+/* ===== TOAST ===== */
+.toast {
+  position: fixed;
+  bottom: 22px; right: 22px;
+  background: #27ae60;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: bold;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* ===== LOADING ===== */
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: none; align-items: center; justify-content: center; z-index: 9998;
+}
+.loading-overlay.show { display: flex; }
+.loading-box { background: #1e1e1e; color: #fff; padding: 28px 40px; border-radius: 8px; text-align: center; font-size: 14px; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 4px solid #444; border-top-color: #f0a500;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== PRINT ===== */
+@media print {
+  body { background: #fff; padding: 0; }
+  .control-panel, .boleta-top-ref { display: none !important; }
+  .boleta-area { width: 100%; align-items: center; }
+  .boleta-scale-wrapper { overflow: visible; width: 100%; }
+  #boleta { box-shadow: none; width: 100%; transform: none !important; }
+  .col-del, .btn-del { display: none !important; }
+  @page { size: A4 landscape; margin: 8mm; }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 980px) {
+  .app-container { flex-direction: column; }
+  .control-panel { width: 100%; position: static; max-height: none; }
+  .boleta-area { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- PANEL -->
+  <div class="control-panel">
+    <h2>🧾 Generador de Boleta</h2>
+
+    <div class="section-title">🔢 Número de boleta</div>
+    <div class="num-row">
+      <input type="text" id="inputNumBoleta" placeholder="0025" maxlength="8">
+      <button class="btn btn-auto-num" onclick="autoNumerar()">AUTO ↑</button>
+    </div>
+
+    <div class="section-title">👤 Datos del cliente</div>
+    <label>Señor(es)</label>
+    <input type="text" id="inputCliente" placeholder="Nombre del cliente">
+    <label>Dirección</label>
+    <input type="text" id="inputDireccion" placeholder="Dirección">
+    <label>DNI</label>
+    <input type="text" id="inputDNI" placeholder="12345678" maxlength="8">
+
+    <div class="section-title">📦 Agregar ítem</div>
+    <div class="row-2">
+      <div>
+        <label>Cantidad</label>
+        <input type="number" id="inputCant" placeholder="1" min="1" value="1">
+      </div>
+      <div>
+        <label>Precio unit. (S/)</label>
+        <input type="number" id="inputPrecio" placeholder="0.00" min="0" step="0.01">
+      </div>
+    </div>
+    <label>Descripción</label>
+    <input type="text" id="inputDesc" placeholder="Descripción del servicio">
+    <button class="btn btn-add" onclick="agregarItem()">+ Agregar ítem</button>
+    <div class="items-list-preview" id="itemsPreview"></div>
+
+    <div class="section-title">💰 Pagos</div>
+    <div class="row-2">
+      <div>
+        <label>A cuenta (S/)</label>
+        <input type="number" id="inputACuenta" placeholder="0.00" min="0" step="0.01" oninput="actualizarSaldo()">
+      </div>
+      <div>
+        <label>Saldo (S/)</label>
+        <input type="text" id="inputSaldo" placeholder="0.00" readonly style="background:#222;color:#888;">
+      </div>
+    </div>
+
+    <div class="section-title">⚙️ Acciones</div>
+    <button class="btn btn-cancel" id="btnCancelar" onclick="toggleCancelado()">🚫 Marcar como CANCELADO</button>
+    <button class="btn btn-print"  onclick="imprimirBoleta()">🖨️ Imprimir</button>
+    <button class="btn btn-pdf"    onclick="descargarPDF()">📄 Descargar PDF</button>
+    <button class="btn btn-new"    onclick="nuevaBoleta()">🔄 Nueva boleta</button>
+  </div>
+
+  <!-- BOLETA -->
+  <div class="boleta-area">
+    <div class="boleta-top-ref" id="boletaTopRef">N° 0025</div>
+    <div class="boleta-scale-wrapper">
+      <div id="boleta">
+
+        <!-- SELLO -->
+        <div class="sello-cancelado">CANCELADO</div>
+
+        <!-- HEADER -->
+        <div class="boleta-header">
+
+          <!-- LOGO SVG ESTÁTICO -->
+          <div class="header-logo">
+            <svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="50" cy="50" r="48" fill="#1a3a6b" stroke="#111" stroke-width="2"/>
+              <!-- Cuerpo -->
+              <rect x="33" y="54" width="34" height="26" rx="4" fill="#fff"/>
+              <!-- Cabeza -->
+              <circle cx="50" cy="38" r="13" fill="#f5c27a"/>
+              <!-- Gorra técnico -->
+              <path d="M37 38 Q50 20 63 38 Z" fill="#e74c3c"/>
+              <rect x="35" y="36" width="30" height="5" rx="2" fill="#c0392b"/>
+              <!-- Ojos -->
+              <circle cx="45" cy="40" r="2.2" fill="#333"/>
+              <circle cx="55" cy="40" r="2.2" fill="#333"/>
+              <!-- Boca -->
+              <path d="M45 46 Q50 51 55 46" stroke="#a0522d" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <!-- Uniforme -->
+              <rect x="37" y="58" width="26" height="16" rx="3" fill="#1a3a6b"/>
+              <!-- Llave inglesa -->
+              <g transform="rotate(-25,67,55)">
+                <rect x="63" y="46" width="5" height="20" rx="2" fill="#bbb"/>
+                <circle cx="65.5" cy="45" r="4.5" fill="none" stroke="#bbb" stroke-width="2.5"/>
+              </g>
+              <!-- Cinturon -->
+              <rect x="33" y="68" width="34" height="5" rx="2" fill="#8B6914"/>
+              <!-- Nombre -->
+              <text x="50" y="92" font-family="Arial" font-size="8.5" font-weight="900" fill="#f0a500" text-anchor="middle" letter-spacing="1">SALROD</text>
+            </svg>
+          </div>
+
+          <!-- INFO -->
+          <div class="header-info">
+            <div class="business-name">Servicio Técnico a Domicilio</div>
+            <div class="sub1">Refrigeradoras y Lavadoras</div>
+            <div class="sub2">Solución Inmediata</div>
+            <div class="sub3">Venta de Lavadoras y Refrigeradoras y Toda Clase de Artefacto</div>
+            <div class="telefono">📱 Cel: 904506345</div>
+          </div>
+
+          <!-- NOTA -->
+          <div class="header-nota">
+            <div class="nota-label">NOTA DE VENTA</div>
+            <div class="nota-number" id="boletaNumDisplay">0025</div>
+            <div class="nota-fecha">
+              <div class="fecha-header">
+                <span>DIA</span><span>MES</span><span>AÑO</span>
+              </div>
+              <div class="fecha-vals">
+                <span id="fechaDia"></span>
+                <span id="fechaMes"></span>
+                <span id="fechaAnio"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLIENTE -->
+        <div class="cliente-section">
+          <div class="cliente-row">
+            <span class="field-label">Señor(es):</span>
+            <span class="dotted-line"></span>
+            <span class="field-value" id="boletaCliente"></span>
+            <span class="dotted-line"></span>
+          </div>
+          <div class="cliente-row cliente-row2">
+            <div class="dir-group">
+              <span class="field-label">Dirección:</span>
+              <span class="dotted-line"></span>
+              <span class="field-value" id="boletaDireccion"></span>
+              <span class="dotted-line"></span>
+            </div>
+            <div class="dni-group">
+              &nbsp;&nbsp;<span class="field-label">DNI:</span>
+              <span class="dotted-line"></span>
+              <span class="field-value" id="boletaDNI"></span>
+              <span class="dotted-line"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA -->
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th class="col-cant">CANT</th>
+              <th>DESCRIPCIÓN</th>
+              <th class="col-punit">P. UNIT.</th>
+              <th class="col-importe">IMPORTE</th>
+              <th class="col-del no-print"></th>
+            </tr>
+          </thead>
+          <tbody id="itemsTbody"></tbody>
+        </table>
+
+        <!-- PIE -->
+        <div class="boleta-footer">
+          <div class="footer-acuenta">
+            <span>A CUENTA</span>
+            <span class="footer-box" id="boletaACuenta"></span>
+          </div>
+          <div class="footer-saldo">
+            <span>SALDO</span>
+            <span class="footer-box" id="boletaSaldo"></span>
+          </div>
+          <div class="footer-total">
+            <span>TOTAL S/:</span>
+            <span class="total-box" id="boletaTotal">S/0.00</span>
+          </div>
+        </div>
+
+        <div class="firma-section">
+          <div class="firma-box">Firma del cliente</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    Generando PDF...
+  </div>
+</div>
+
+<script>
+let items = [];
+let esCancelado = false;
+
+/* INIT */
+window.addEventListener('DOMContentLoaded', () => {
+  const hoy = new Date();
+  document.getElementById('fechaDia').textContent  = String(hoy.getDate()).padStart(2,'0');
+  document.getElementById('fechaMes').textContent  = String(hoy.getMonth()+1).padStart(2,'0');
+  document.getElementById('fechaAnio').textContent = hoy.getFullYear();
+
+  const num = localStorage.getItem('ultimoNumBoleta') || '0025';
+  document.getElementById('inputNumBoleta').value = num;
+  actualizarNumBoleta(num);
+
+  [['inputCliente','boletaCliente'],['inputDireccion','boletaDireccion'],['inputDNI','boletaDNI']]
+    .forEach(([i,o]) => document.getElementById(i).addEventListener('input', e => {
+      document.getElementById(o).textContent = e.target.value;
+    }));
+
+  document.getElementById('inputNumBoleta').addEventListener('input', e => actualizarNumBoleta(e.target.value));
+  document.getElementById('inputDesc').addEventListener('keydown', e => { if(e.key==='Enter') agregarItem(); });
+
+  renderTabla();
+});
+
+/* NÚMERO */
+function actualizarNumBoleta(val) {
+  const num = val ? String(val).padStart(4,'0') : '0000';
+  document.getElementById('boletaNumDisplay').textContent = num;
+  document.getElementById('boletaTopRef').textContent = 'N° ' + num;
+  localStorage.setItem('ultimoNumBoleta', num);
+}
+function autoNumerar() {
+  const actual = parseInt(localStorage.getItem('ultimoNumBoleta')||'0')||0;
+  const nuevo = String(actual+1).padStart(4,'0');
+  document.getElementById('inputNumBoleta').value = nuevo;
+  actualizarNumBoleta(nuevo);
+  showToast('Número generado: ' + nuevo);
+}
+
+/* CANCELADO */
+function toggleCancelado() {
+  esCancelado = !esCancelado;
+  const boleta = document.getElementById('boleta');
+  const btn = document.getElementById('btnCancelar');
+  if (esCancelado) {
+    boleta.classList.add('cancelado');
+    btn.textContent = '✅ Quitar CANCELADO';
+    btn.style.background = '#1e8449';
+    showToast('Boleta marcada como CANCELADO');
+  } else {
+    boleta.classList.remove('cancelado');
+    btn.textContent = '🚫 Marcar como CANCELADO';
+    btn.style.background = '#c0392b';
+    showToast('Sello removido');
+  }
+}
+
+/* ITEMS */
+function agregarItem() {
+  const cant   = parseFloat(document.getElementById('inputCant').value)||1;
+  const precio = parseFloat(document.getElementById('inputPrecio').value);
+  const desc   = document.getElementById('inputDesc').value.trim();
+  if (!desc)                  { showToast('⚠ Ingresa una descripción',true); return; }
+  if (isNaN(precio)||precio<0){ showToast('⚠ Ingresa un precio válido',true); return; }
+  items.push({cant,desc,precio,importe:cant*precio});
+  renderTabla(); renderPreview(); actualizarTotales(); actualizarSaldo();
+  document.getElementById('inputDesc').value='';
+  document.getElementById('inputPrecio').value='';
+  document.getElementById('inputCant').value='1';
+  document.getElementById('inputDesc').focus();
+  showToast('Ítem agregado ✓');
+}
+function eliminarItem(idx) {
+  items.splice(idx,1);
+  renderTabla(); renderPreview(); actualizarTotales(); actualizarSaldo();
+}
+
+const MIN_ROWS = 8;
+function renderTabla() {
+  const tbody = document.getElementById('itemsTbody');
+  tbody.innerHTML='';
+  items.forEach((item,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="col-cant">${item.cant}</td>
+      <td>${esc(item.desc)}</td>
+      <td class="col-punit">S/${item.precio.toFixed(2)}</td>
+      <td class="col-importe">S/${item.importe.toFixed(2)}</td>
+      <td class="col-del no-print"><button class="btn-del" onclick="eliminarItem(${i})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+  const vacias=Math.max(0,MIN_ROWS-items.length);
+  for(let i=0;i<vacias;i++){
+    const tr=document.createElement('tr');
+    tr.className='empty-row';
+    tr.innerHTML='<td class="col-cant">&nbsp;</td><td></td><td class="col-punit"></td><td class="col-importe"></td><td class="col-del no-print"></td>';
+    tbody.appendChild(tr);
+  }
+  setTimeout(scaleBoleta,50);
+}
+function renderPreview(){
+  const c=document.getElementById('itemsPreview');
+  c.innerHTML='';
+  items.forEach((item,i)=>{
+    const d=document.createElement('div');
+    d.className='item-preview';
+    d.innerHTML=`<span class="item-preview-text">${esc(item.cant)}x ${esc(item.desc)}</span>
+      <span class="item-preview-price">S/${item.importe.toFixed(2)}</span>
+      <button class="item-preview-del" onclick="eliminarItem(${i})">✕</button>`;
+    c.appendChild(d);
+  });
+}
+function actualizarTotales(){
+  const total=items.reduce((a,it)=>a+it.importe,0);
+  document.getElementById('boletaTotal').textContent='S/'+total.toFixed(2);
+  return total;
+}
+function actualizarSaldo(){
+  const total=actualizarTotales();
+  const ac=parseFloat(document.getElementById('inputACuenta').value)||0;
+  const saldo=Math.max(0,total-ac);
+  document.getElementById('inputSaldo').value=saldo.toFixed(2);
+  document.getElementById('boletaACuenta').textContent=ac>0?'S/'+ac.toFixed(2):'';
+  document.getElementById('boletaSaldo').textContent=ac>0?'S/'+saldo.toFixed(2):'';
+}
+
+/* IMPRIMIR */
+function imprimirBoleta(){
+  document.querySelectorAll('.no-print').forEach(el=>el.style.display='none');
+  const b=document.getElementById('boleta');
+  const prev=b.style.transform;
+  b.style.transform='';
+  window.print();
+  setTimeout(()=>{
+    document.querySelectorAll('.no-print').forEach(el=>el.style.display='');
+    b.style.transform=prev;
+  },1200);
+}
+
+/* PDF */
+async function descargarPDF(){
+  const ov=document.getElementById('loadingOverlay');
+  ov.classList.add('show');
+  document.querySelectorAll('.no-print').forEach(el=>el.style.display='none');
+  const b=document.getElementById('boleta');
+  const prev=b.style.transform;
+  b.style.transform='';
+  try{
+    const canvas=await html2canvas(b,{scale:3,useCORS:true,backgroundColor:'#fff',logging:false});
+    const imgData=canvas.toDataURL('image/png');
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const pW=297,pH=210,mg=8,mW=pW-mg*2,mH=pH-mg*2;
+    const ratio=canvas.width/canvas.height;
+    let iW=mW,iH=iW/ratio;
+    if(iH>mH){iH=mH;iW=iH*ratio;}
+    pdf.addImage(imgData,'PNG',(pW-iW)/2,(pH-iH)/2,iW,iH,'','FAST');
+    const num=document.getElementById('boletaNumDisplay').textContent||'0000';
+    pdf.save(`nota-venta-${num}.pdf`);
+    showToast('PDF descargado ✓');
+  }catch(err){
+    showToast('⚠ Error al generar PDF',true);
+    console.error(err);
+  }finally{
+    document.querySelectorAll('.no-print').forEach(el=>el.style.display='');
+    b.style.transform=prev;
+    ov.classList.remove('show');
+  }
+}
+
+/* NUEVA BOLETA */
+function nuevaBoleta(){
+  if(items.length>0&&!confirm('¿Crear nueva boleta? Se perderán los datos actuales.'))return;
+  items=[];esCancelado=false;
+  document.getElementById('boleta').classList.remove('cancelado');
+  const btn=document.getElementById('btnCancelar');
+  btn.textContent='🚫 Marcar como CANCELADO';btn.style.background='#c0392b';
+  renderTabla();renderPreview();actualizarTotales();
+  ['inputCliente','inputDireccion','inputDNI','inputDesc','inputPrecio','inputACuenta']
+    .forEach(id=>document.getElementById(id).value='');
+  document.getElementById('inputCant').value='1';
+  document.getElementById('inputSaldo').value='';
+  ['boletaCliente','boletaDireccion','boletaDNI','boletaACuenta','boletaSaldo']
+    .forEach(id=>document.getElementById(id).textContent='');
+  autoNumerar();
+  showToast('Nueva boleta lista ✓');
+}
+
+/* UTILS */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=err?'#c0392b':'#27ae60';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* SCALE RESPONSIVE */
+function scaleBoleta(){
+  const wrapper=document.querySelector('.boleta-scale-wrapper');
+  const boleta=document.getElementById('boleta');
+  if(!wrapper||!boleta)return;
+  const ww=wrapper.offsetWidth;
+  const bw=842;
+  if(ww<bw){
+    const scale=ww/bw;
+    boleta.style.transform=`scale(${scale})`;
+    boleta.style.transformOrigin='top left';
+    wrapper.style.height=(boleta.scrollHeight*scale)+'px';
+  }else{
+    boleta.style.transform='';
+    boleta.style.transformOrigin='';
+    wrapper.style.height='';
+  }
+}
+window.addEventListener('resize', scaleBoleta);
+window.addEventListener('load', () => { renderTabla(); setTimeout(scaleBoleta,100); });
+</script>
+</body>
+</html>
